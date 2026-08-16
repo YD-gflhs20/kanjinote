@@ -628,8 +628,17 @@ textarea{font-family:var(--mono);font-size:12px;line-height:1.6}
 .wordlist .m{font-size:13px;color:var(--ink2);flex:1}
 .wordlist button{border:none;background:none;color:var(--ink3);font-size:16px;padding:0 6px}
 .wordlist button:hover{color:var(--acc)}
-footer.foot{border-top:1px solid var(--line);padding:18px 0 34px;font-size:11px;color:var(--ink3);
-  text-align:center;line-height:1.9}
+footer.foot{border-top:1px solid var(--line);padding:20px 0 34px;font-size:11px;color:var(--ink3);
+  text-align:center;line-height:1.85}
+footer.foot .lic{font-size:10.5px;line-height:1.8;opacity:.9}
+footer.foot .warn{margin-top:14px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;
+  display:inline-block;text-align:left;max-width:33em;font-size:11px;color:var(--ink2);line-height:1.75}
+footer.foot .warn b{color:var(--ink1);font-weight:600}
+.keepbox{margin-top:22px;padding:14px 15px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+.keepbox h3{font-size:13px;margin:0 0 6px;color:var(--ink1);font-weight:600}
+.keepbox p{font-size:12px;color:var(--ink2);line-height:1.8;margin:0 0 11px}
+.keepbox .btns{display:flex;gap:8px;flex-wrap:wrap}
+.keepbox .btn{font-size:12.5px;padding:7px 15px}
 footer.foot a{color:var(--ink2)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -658,8 +667,24 @@ footer.foot a{color:var(--ink2)}
   <div class="word"></div>
 </div></div>
 <footer class="foot wrap">
-  필순 데이터 <a href="http://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a> (CC BY-SA 3.0) · Ulrich Apel<br>
-  북마크·단어장은 이 브라우저에만 저장됩니다
+  <div class="lic">
+    필순 데이터 <a href="http://kanjivg.tagaini.net" target="_blank" rel="noopener">KanjiVG</a>
+    © Ulrich Apel ·
+    <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>
+    — SVG를 JSON으로 바꿔 실었습니다<br>
+    획수·읽기·한국 한자음 <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noopener">KANJIDIC2</a>
+    © EDRDG ·
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>
+    — 추리고 고쳐 썼습니다<br>
+    위 두 출처에서 나온 데이터는 같은 CC BY-SA 조건으로 씁니다
+  </div>
+  <div class="warn">
+    <b>기록은 이 브라우저 안에만 남습니다.</b>
+    북마크·단어장·오답노트는 서버로 가지 않습니다.
+    시크릿 창에서는 창을 닫는 순간 지워지고, 브라우저 기록을 지우거나
+    다른 기기·브라우저로 열면 아무것도 보이지 않습니다.
+    아깝다 싶은 게 쌓이면 <b>내 것 → 내보내기</b>로 파일을 받아 두세요.
+  </div>
 </footer>
 <script>
 /* 漢字帖 데이터 · jl=JLPT 급수, t=자형 힌트, w의 r은 그 단어가 쓰는 음훈독 */
@@ -1044,7 +1069,12 @@ function setTheme(id,quiet){
   try{ localStorage.setItem("kj:theme",id); }catch(e){}
   try{ if(window.storage&&window.storage.set) window.storage.set("kj:theme",id,false).catch(function(){}); }catch(e){}
   drawDeco(); renderModes();
-  const tc=$("#tc"); if(tc && tc._restyle){ try{ tc._restyle(); }catch(e){} }
+  /* 테마가 바뀌면 붓 색이 달라지므로 이미 쓴 글자는 지운다 */
+  const tc=$("#tc");
+  if(tc){
+    if(tc._clear){ try{ tc._clear(); }catch(e){} }
+    if(tc._restyle){ try{ tc._restyle(); }catch(e){} }
+  }
   if(!quiet){
     const t=THEMES.filter(function(x){return x.id===id;})[0];
     toast(t.ko+" 모드로 바꿨어요");
@@ -1948,41 +1978,7 @@ function initTrace(){
   /* 화면에 닿아 있는 손가락 — 두 개 이상이면 그리지 않고 화면을 직접 스크롤한다.
      (touch-action:none 이라 브라우저가 대신 해 주지 않으므로 여기서 처리) */
   const active = new Map();
-  let drawId = null, scrollAnchor = null;
-  let scrollVel = 0, scrollLast = 0, glideId = 0, scrollPending = 0, scrollRaf = 0;
-  function avgY(){
-    let s=0, n=0;
-    active.forEach(function(y){ s+=y; n++; });
-    return n? s/n : 0;
-  }
-  /* 화면 굴리기 — 프레임마다 한 번만 옮겨 떨림을 없앤다 */
-  function flushScroll(){
-    scrollRaf=0;
-    const dy=scrollPending; scrollPending=0;
-    if(!dy) return;
-    if(active.size<2) return;            /* 손가락이 하나로 줄었으면 남은 몫은 버린다 */
-    try{ window.scrollBy(0, dy); }catch(e){}
-  }
-  function pushScroll(dy){
-    scrollPending += dy;
-    if(!scrollRaf){
-      scrollRaf = window.requestAnimationFrame? window.requestAnimationFrame(flushScroll) : setTimeout(flushScroll,16);
-    }
-  }
-  /* 손을 뗀 뒤 부드럽게 미끄러지기 */
-  function stopGlide(){
-    if(glideId){
-      if(window.cancelAnimationFrame) window.cancelAnimationFrame(glideId); else clearTimeout(glideId);
-      glideId=0;
-    }
-  }
-  function glide(){
-    glideId=0;
-    if(Math.abs(scrollVel) < 0.4){ scrollVel=0; return; }
-    try{ window.scrollBy(0, scrollVel); }catch(e){}
-    scrollVel *= 0.93;
-    glideId = window.requestAnimationFrame? window.requestAnimationFrame(glide) : setTimeout(glide,16);
-  }
+  let drawId = null;
   function cancelStroke(){
     /* 그리던 획을 없던 일로 되돌린다 */
     drawing=false; drawId=null; pts=[];
@@ -1993,21 +1989,15 @@ function initTrace(){
   cv.addEventListener("pointerdown", function(e){
     const touch = (e.pointerType==="touch");
     if(touch){
-      active.set(e.pointerId, e.clientY);
-      /* 두 번째 손가락이 닿으면 → 스크롤 의도로 보고 획을 취소 */
+      active.set(e.pointerId, 1);
+      /* 두 번째 손가락이 닿으면 → 그리던 획을 취소하고 아무것도 하지 않는다 */
       if(active.size>1){
         if(drawing) cancelStroke();
         try{ cv.releasePointerCapture(e.pointerId); }catch(err){}
-        stopGlide();
-        scrollVel = 0;
-        scrollAnchor = avgY();
-        scrollLast = (window.performance&&performance.now)? performance.now() : Date.now();
         return;
       }
     }
     if(e.preventDefault) e.preventDefault();
-    /* 붓을 대는 순간 스크롤 관성·잔여물을 모두 없앤다 */
-    stopGlide(); scrollVel=0; scrollPending=0; scrollAnchor=null;
     try{ if(window.getSelection) window.getSelection().removeAllRanges(); }catch(err){}
     drawing=true; drawId=e.pointerId; pts=[];
     try{ cv.setPointerCapture(e.pointerId); }catch(err){}
@@ -2016,24 +2006,8 @@ function initTrace(){
     redraw();
   });
   cv.addEventListener("pointermove", function(e){
-    /* 두 손가락 → 손가락이 움직인 만큼 화면을 굴린다 */
-    if(e.pointerType==="touch" && active.size>1){
-      if(active.has(e.pointerId)) active.set(e.pointerId, e.clientY);
-      const now = avgY();
-      if(scrollAnchor!==null){
-        const dy = scrollAnchor - now;
-        if(dy){
-          pushScroll(dy);
-          const t=(window.performance&&performance.now)? performance.now() : Date.now();
-          const dt=Math.max(8, t-scrollLast);
-          /* 최근 속도를 부드럽게 누적 (프레임당 이동량) */
-          scrollVel = scrollVel*0.7 + (dy/dt*16)*0.3;
-          scrollLast=t;
-        }
-      }
-      scrollAnchor = now;
-      return;
-    }
+    /* 두 손가락이 닿아 있으면 아무 반응도 하지 않는다 */
+    if(e.pointerType==="touch" && active.size>1) return;
     if(!drawing) return;
     if(drawId!==null && e.pointerId!==drawId) return;   /* 그리는 손가락만 따라감 */
     if(e.preventDefault) e.preventDefault();
@@ -2062,15 +2036,6 @@ function initTrace(){
   function release(e){
     if(e && e.pointerType==="touch"){
       active.delete(e.pointerId);
-      if(active.size<2){
-        scrollAnchor=null;
-        /* 손을 떼기 직전 100ms 안에 움직였고, 속도가 충분할 때만 미끄러진다 */
-        const t=(window.performance&&performance.now)? performance.now() : Date.now();
-        if(Math.abs(scrollVel)>2.5 && (t-scrollLast)<100){ stopGlide(); glide(); }
-        else { stopGlide(); scrollVel=0; }
-      }else{
-        scrollAnchor=avgY();
-      }
     }
     /* 그리던 손가락이 아니면 획을 건드리지 않는다 */
     if(e && drawId!==null && e.pointerId!==drawId) return;
@@ -2308,7 +2273,55 @@ function viewNote(){
       }).join("")+'</div><button class="btn ghost" data-clearwrong style="margin-top:14px">오답 기록 지우기</button>'
       : '<div class="empty"><b>깨끗해요</b>퀴즈에서 틀린 한자가 여기 쌓입니다.</div>';
   }
+  h+='<div class="keepbox">'+
+     '<h3>기록 지키기</h3>'+
+     '<p>여기 모인 것은 이 브라우저 안에만 있습니다. 시크릿 창을 닫거나, 브라우저 기록을 지우거나, '+
+     '다른 기기에서 열면 보이지 않아요. 파일로 받아 두면 언제든 되살릴 수 있습니다.</p>'+
+     '<div class="btns">'+
+       '<button class="btn" data-expdb>파일로 받기</button>'+
+       '<button class="btn ghost" data-impdb>파일에서 불러오기</button>'+
+     '</div>'+
+     '<input type="file" id="impfile" accept="application/json,.json" style="display:none">'+
+     '</div>';
   return h;
+}
+
+/* ── 기록 내보내기 · 가져오기 ─────────────── */
+function exportDB(){
+  const box = { app:"kanjicho", ver:1, at:new Date().toISOString() };
+  KEYS.forEach(function(k){ box[k] = DB[k]; });
+  const txt = JSON.stringify(box, null, 1);
+  const stamp = new Date().toISOString().slice(0,10).replace(/-/g,"");
+  const name = "\ud55c\uc790\uae30\ub85d-" + stamp + ".json";
+  try{
+    const url = URL.createObjectURL(new Blob([txt], {type:"application/json"}));
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    toast("\ub0b4\ubcf4\ub0c8\uc5b4\uc694 \u00b7 " + name);
+  }catch(e){ toast("\ub0b4\ubcf4\ub0b4\uae30\uac00 \uc548 \ub418\ub124\uc694."); }
+}
+function countDB(o){
+  return (o.bm||[]).length + (o.wb||[]).length + (o.uk||[]).length
+       + Object.keys(o.uw||{}).length + Object.keys(o.wrong||{}).length;
+}
+function importDB(file){
+  const fr = new FileReader();
+  fr.onload = function(){
+    let box;
+    try{ box = JSON.parse(String(fr.result)); }
+    catch(e){ toast("\uc77d\uc744 \uc218 \uc5c6\ub294 \ud30c\uc77c\uc774\uc5d0\uc694."); return; }
+    if(!box || box.app!=="kanjicho"){ toast("\ud55c\uc790\ucca9 \uae30\ub85d \ud30c\uc77c\uc774 \uc544\ub2c8\uc5d0\uc694."); return; }
+    const now = countDB(DB), inc = countDB(box);
+    if(now>0 && !window.confirm("\uc9c0\uae08 \uae30\ub85d "+now+"\uac1c\ub97c \ubd88\ub7ec\uc628 "+inc+"\uac1c\ub85c \ubc14\uafc9\ub2c8\ub2e4.\n\uc9c0\uae08 \uac83\uc740 \uc9c0\uc6cc\uc9d1\ub2c8\ub2e4. \uacc4\uc18d\ud560\uae4c\uc694?")) return;
+    KEYS.forEach(function(k){
+      if(box[k]!==undefined){ DB[k] = box[k]; save(k); }
+    });
+    reindex(); render();
+    toast("\ubd88\ub7ec\uc654\uc5b4\uc694 \u00b7 " + inc + "\uac1c");
+  };
+  fr.readAsText(file);
 }
 
 /* ── 화면: 추가하기 ───────────────────────── */
@@ -2530,6 +2543,15 @@ document.addEventListener("click", function(e){
     save("wb"); toast("단어장에 넣었어요"); render(); return;
   }
   if(d.clearwrong!==undefined){ DB.wrong={}; save("wrong"); render(); return; }
+  if(d.expdb!==undefined){ exportDB(); return; }
+  if(d.impdb!==undefined){
+    const f=$("#impfile");
+    if(f){
+      f.onchange=function(){ if(f.files&&f.files[0]) importDB(f.files[0]); f.value=""; };
+      f.click();
+    }
+    return;
+  }
   if(d.bmwrong!==undefined){
     Q.wrong.forEach(function(c){ if(DB.bm.indexOf(c)<0) DB.bm.push(c); });
     save("bm"); toast("북마크에 담았어요"); render(); return;
