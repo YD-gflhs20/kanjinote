@@ -1742,7 +1742,7 @@ function resultsHTML(){
 }
 function filterHTML(){
   return '<div class="filters">'+
-    ["all","N5","N4","N3","N2","N1"].map(function(v){
+    ["all","N5","N4","N3","N2","N1","인명"].map(function(v){
       const n = v==="all"? ALL.length : ALL.filter(function(k){ return k.jl===v; }).length;
       if(v!=="all" && !n) return "";
       return '<button class="chip" data-lv="'+v+'" aria-pressed="'+(S.lv===v)+'">'+
